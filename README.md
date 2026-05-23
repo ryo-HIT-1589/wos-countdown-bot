@@ -40,21 +40,35 @@ https://discord.com/oauth2/authorize?scope=bot%20applications.commands&permissio
 ---
 
 ## 🔧 **Configuration**
-### 1️⃣ **Set Up the Config File**
+### 1️⃣ **Set the Bot Token**
+Set your Discord bot token as an environment variable named `DISCORD_BOT_TOKEN`.
+
+#### **Linux/macOS**:
+```sh
+export DISCORD_BOT_TOKEN="YOUR_BOT_TOKEN_HERE"
+```
+
+#### **Windows PowerShell**:
+```powershell
+$env:DISCORD_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+```
+
+`config.json` is still used for non-secret settings like roles, channel IDs, and local webserver host/port. The app can start without this file.
+
 1. In the project directory, copy `example.config.json` to `config.json`:
    ```sh
    cp example.config.json config.json
    ```
-2. Open `config.json` and **add your bot token**:
+2. Edit any non-secret settings you need:
    ```json
    {
-       "token": "YOUR_BOT_TOKEN_HERE",
-       "roles-allowed-to-control-bot": [],
+       "roles-allowed-to-control-bot": [123456789012345678],
        "purge-and-repost-on-channel-ids": []
    }
    ```
-   - Set **`roles-allowed-to-control-bot`** to restrict control to specific roles.
+   - Set **`roles-allowed-to-control-bot`** to Discord role IDs, not role names, to restrict who can play sounds.
    - Set **`purge-and-repost-on-channel-ids`** to an array of channel IDs if you want the bot to automatically clean and repost control messages.
+   - Do not put the bot token in `config.json`.
 
 ---
 
@@ -133,6 +147,7 @@ This image is built from the `main` branch and tagged as `latest`.
 ```sh
 docker run -it --rm \
   --name wos-countdown-bot \
+  -e DISCORD_BOT_TOKEN="YOUR_BOT_TOKEN_HERE" \
   -v $(pwd)/config.json:/app/config.json \
   -v $(pwd)/sound-clips:/app/sound-clips \
   -p 127.0.0.1:5544:5544 \
@@ -143,6 +158,7 @@ docker run -it --rm \
 ```sh
 docker run -it --rm \
   --name wos-countdown-bot \
+  -e DISCORD_BOT_TOKEN="YOUR_BOT_TOKEN_HERE" \
   -v $(pwd)/config.json:/app/config.json \
   -p 127.0.0.1:5544:5544 \
   deathmarcher/wos-countdown-bot:latest
@@ -152,6 +168,7 @@ docker run -it --rm \
 ```powershell
 docker run -it --rm `
   --name wos-countdown-bot `
+  -e DISCORD_BOT_TOKEN="YOUR_BOT_TOKEN_HERE" `
   -v ${PWD}/config.json:/app/config.json `
   -v ${PWD}/sound-clips:/app/sound-clips `
   -p 127.0.0.1:5544:5544 `
@@ -162,6 +179,7 @@ docker run -it --rm `
 ```powershell
 docker run -it --rm `
   --name wos-countdown-bot `
+  -e DISCORD_BOT_TOKEN="YOUR_BOT_TOKEN_HERE" `
   -v ${PWD}/config.json:/app/config.json `
   -p 127.0.0.1:5544:5544 `
   deathmarcher/wos-countdown-bot:latest
@@ -176,6 +194,7 @@ If you want to run a specific release version, replace `latest` with the release
 ```sh
 docker run -it --rm \
   --name wos-countdown-bot \
+  -e DISCORD_BOT_TOKEN="YOUR_BOT_TOKEN_HERE" \
   -v $(pwd)/config.json:/app/config.json \
   -v $(pwd)/sound-clips:/app/sound-clips \
   -p 127.0.0.1:5544:5544 \
@@ -186,6 +205,7 @@ docker run -it --rm \
 ```powershell
 docker run -it --rm `
   --name wos-countdown-bot `
+  -e DISCORD_BOT_TOKEN="YOUR_BOT_TOKEN_HERE" `
   -v ${PWD}/config.json:/app/config.json `
   -v ${PWD}/sound-clips:/app/sound-clips `
   -p 127.0.0.1:5544:5544 `

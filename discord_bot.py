@@ -4,13 +4,11 @@ import os
 import discord
 from discord.ext import commands
 from discord.ui import Button, View
-import json
 import datetime
 import re
+from config_loader import get_bot_token, load_config
 
-# Load configuration from config.json
-with open("config.json", "r") as config_file:
-	config = json.load(config_file)
+config = load_config()
 
 # Configure logging
 logging.basicConfig(
@@ -23,11 +21,21 @@ global_logs = {}
 log_counter = 0  # Counter to generate unique IDs for logs
 
 # Configuration values
-bot_token = config.get("token")
+bot_token = get_bot_token()
 allowed_roles = config.get("roles-allowed-to-control-bot", [])
+try:
+	allowed_role_ids = {int(role_id) for role_id in allowed_roles}
+except (TypeError, ValueError) as exc:
+	raise RuntimeError("roles-allowed-to-control-bot must contain Discord role IDs, not role names.") from exc
 purge_channel_ids = config.get("purge-and-repost-on-channel-ids", [])
 log_messages_to_keep = config.get("log-messages-to-keep",0)
 debug = config.get("debug", True)
+hidden_sound_buttons = {
+	"countdown-en-60-0",
+	"countdown-en-70-0",
+	"countdown-en-80-0",
+	"countdown-en-90-0",
+}
 
 # Enable the required intents
 intents = discord.Intents.default()
@@ -44,6 +52,14 @@ def extract_number(filename):
 # Helper function to sort files numerically when they contain numbers
 def sort_sound_files(files):
 	return sorted(files, key=extract_number)
+
+def get_sound_files(include_hidden=False):
+	"""Get sound file names for Discord button registration or display."""
+	return sorted(
+		f[:-4]
+		for f in os.listdir('sound-clips')
+		if f.endswith('.mp3') and (include_hidden or f[:-4] not in hidden_sound_buttons)
+	)
 
 # Helper function to log messages
 def log_message(message, severity="info", category="catchall"):
@@ -132,8 +148,8 @@ def user_has_permission(member: discord.Member):
 		log_message("No specific roles defined, allowing all users.", category="user_has_permission")
 		return True
 	for role in member.roles:
-		if role.name in allowed_roles:
-			log_message(f"User {member.display_name} allowed: found role {role.name}", category="user_has_permission")
+		if role.id in allowed_role_ids:
+			log_message(f"User {member.display_name} allowed: found role ID {role.id}", category="user_has_permission")
 			return True
 	log_message(f"User {member.display_name} not allowed: no matching roles", category="user_has_permission")
 	return False
@@ -147,24 +163,24 @@ class ControlView(View):
 		# Sort sound files numerically
 		sorted_sounds = sort_sound_files(sound_files)
 
-		# Add control buttons (Join, Leave, Stop)
-		join_button = Button(label="Join", style=discord.ButtonStyle.success, custom_id="join_button")
-		leave_button = Button(label="Leave", style=discord.ButtonStyle.danger, custom_id="leave_button")
 		stop_button = Button(label="Stop", style=discord.ButtonStyle.danger, custom_id="stop_button")
-
-		join_button.callback = self.join_callback
-		leave_button.callback = self.leave_callback
 		stop_button.callback = self.stop_callback
-
-		self.add_item(join_button)
-		self.add_item(leave_button)
 		self.add_item(stop_button)
 
-		# Limit to 22 sound buttons per message (since 3 control buttons are already used)
-		for sound in sorted_sounds[:22]:
+		# Limit to 15 sound buttons so the controls stay under Discord's 25-button cap.
+		for sound in sorted_sounds[:15]:
 			button = Button(label=sound, style=discord.ButtonStyle.primary, custom_id=f"sound_{sound}")
 			button.callback = lambda interaction, s=sound: self.play_sound_callback(interaction, s)
 			self.add_item(button)
+
+		join_button = Button(label="Join", style=discord.ButtonStyle.success, custom_id="join_button")
+		leave_button = Button(label="Leave", style=discord.ButtonStyle.secondary, custom_id="leave_button")
+
+		join_button.callback = self.join_callback
+		leave_button.callback = self.leave_callback
+
+		self.add_item(join_button)
+		self.add_item(leave_button)
 
 
 	async def join_callback(self, interaction: discord.Interaction):
@@ -197,6 +213,11 @@ class ControlView(View):
 
 	async def play_sound_callback(self, interaction: discord.Interaction, sound: str):
 		log_message(f"play_sound_callback called for sound: {sound}", category="play_sound_callback")
+		if sound in hidden_sound_buttons:
+			await interaction.response.send_message("This sound button has been removed.", ephemeral=True)
+			log_message(f"Hidden sound button ignored: {sound}.", category="play_sound_callback")
+			return
+
 		if not user_has_permission(interaction.user):
 			await interaction.response.send_message("You don't have permission to play this sound.", ephemeral=True)
 			log_message(f"User {interaction.user.display_name} does not have permission to play {sound}.", category="play_sound_callback")
@@ -210,8 +231,9 @@ class ControlView(View):
 async def on_ready():
 	log_message(f"{bot.user} has connected to Discord.", category="on_ready")
 
-	# Get all sound file names (without .mp3)
-	sound_files = sorted([f[:-4] for f in os.listdir('sound-clips') if f.endswith('.mp3')])
+	# Register all sound custom IDs so existing Discord messages do not break
+	# before the controls are reposted with the hidden buttons removed.
+	sound_files = get_sound_files(include_hidden=True)
 
 	# Register the ControlView with sound files
 	bot.add_view(ControlView(sound_files))
@@ -227,10 +249,10 @@ async def post_controls_helper(channel, existing_message=None):
 	log_message(f"Posting controls to {channel}", "info", "post_controls")
 
 	# Get all sound file names (without .mp3)
-	sound_files = sorted([f[:-4] for f in os.listdir('sound-clips') if f.endswith('.mp3')])
+	sound_files = get_sound_files()
 
-	# Ensure we don't exceed Discord's button limit (max 25 per message)
-	buttons_per_message = 22  # 22 sound buttons + 3 control buttons = 25 total
+	# Ensure controls can sit on their own bottom rows.
+	buttons_per_message = 15  # 15 sound buttons + 3 control buttons = 18 total
 	chunks = [sound_files[i:i + buttons_per_message] for i in range(0, len(sound_files), buttons_per_message)]
 
 	existing_messages = posted_messages.get(channel.id, [])

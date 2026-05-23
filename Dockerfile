@@ -24,12 +24,12 @@ COPY requirements.txt /app/
 # Install dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Copy the bot files to the container (excluding config.json)
+# Copy the bot files to the container
 COPY . /app/
 
 # Expose necessary ports (only needed if using the webserver)
 EXPOSE 5544
 
-# Command to run the bot (expects an external config.json)
+# Command to run the bot (expects DISCORD_BOT_TOKEN in the environment)
 CMD ["python", "main.py"]
 

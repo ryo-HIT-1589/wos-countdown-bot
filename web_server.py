@@ -4,13 +4,11 @@ import logging
 import asyncio
 from discord_bot import bot, play_sound, global_logs, log_message
 import discord
-import json
+from config_loader import load_config
 
 logger = logging.getLogger(__name__)
 
-# Load configuration from config.json
-with open("config.json", "r") as config_file:
-    config = json.load(config_file)
+config = load_config()
 
 RUNNING_IN_DOCKER = os.getenv("RUNNING_IN_DOCKER", "false").lower() == "true"
 
@@ -21,7 +19,7 @@ DEFAULT_HOST = "127.0.0.1" # when not using docker
 if RUNNING_IN_DOCKER:
     webserver_port = DEFAULT_PORT  # Always 5544 in Docker
 else:
-    webserver_port = config.get("webserver-port", DEFAULT_PORT)  # Use config, fallback to 5544
+    webserver_port = int(os.getenv("PORT", config.get("webserver-port", DEFAULT_PORT)))
 
 # Set webserver host:
 if RUNNING_IN_DOCKER:
