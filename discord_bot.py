@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import asyncio
 import logging
 import os
 import discord
@@ -30,6 +31,7 @@ except (TypeError, ValueError) as exc:
 purge_channel_ids = config.get("purge-and-repost-on-channel-ids", [])
 log_messages_to_keep = config.get("log-messages-to-keep",0)
 debug = config.get("debug", True)
+ephemeral_message_delete_after_seconds = config.get("ephemeral-message-delete-after-seconds", 10)
 hidden_sound_buttons = {
 	"countdown-en-60-0",
 	"countdown-en-70-0",
@@ -132,13 +134,29 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
+
+async def delete_original_response_later(interaction: discord.Interaction, delay_seconds: float):
+	await asyncio.sleep(delay_seconds)
+	try:
+		await interaction.delete_original_response()
+	except discord.NotFound:
+		pass
+	except discord.HTTPException as exc:
+		log_message(f"Could not delete ephemeral response: {str(exc)}", severity="warning", category="delete_original_response_later")
+
+
+async def send_temporary_ephemeral_message(interaction: discord.Interaction, message: str):
+	await interaction.response.send_message(message, ephemeral=True)
+	asyncio.create_task(delete_original_response_later(interaction, ephemeral_message_delete_after_seconds))
+
+
 # Slash command to post control buttons
 @bot.tree.command(name="postcontrols", description="Post the control buttons in the current channel")
 async def post_controls(interaction: discord.Interaction):
 	"""Slash command to post the control buttons in the current channel."""
 	log_message(f"Received /postcontrols command from user {interaction.user.display_name} in channel {interaction.channel.name}", category="post_controls")
 	await post_controls_helper(interaction.channel)
-	await interaction.response.send_message("Control buttons posted successfully.", ephemeral=True)
+	await send_temporary_ephemeral_message(interaction, "Control buttons posted successfully.")
 	log_message("Control buttons posted successfully.", category="post_controls")
 
 # Helper function to check user permissions
@@ -192,7 +210,7 @@ class ControlView(View):
 			log_message("Successfully connected to the voice channel.", category="join_callback")
 			await interaction.response.defer()
 		else:
-			await interaction.response.send_message("You're not connected to a voice channel.", ephemeral=True)
+			await send_temporary_ephemeral_message(interaction, "You're not connected to a voice channel.")
 			log_message("User not connected to a voice channel.", category="join_callback")
 
 	async def leave_callback(self, interaction: discord.Interaction):
@@ -203,23 +221,23 @@ class ControlView(View):
 			await voice_client.disconnect()
 			await interaction.response.defer()
 		else:
-			await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=True)
+			await send_temporary_ephemeral_message(interaction, "I'm not connected to a voice channel.")
 			log_message("No voice channel to leave.", category="leave_callback")
 
 	async def stop_callback(self, interaction: discord.Interaction):
 		log_message("stop_callback called", category="stop_callback")
 		await stop_sound(interaction.guild)
-		await interaction.response.send_message("Stopped the current sound.", ephemeral=True)
+		await send_temporary_ephemeral_message(interaction, "Stopped the current sound.")
 
 	async def play_sound_callback(self, interaction: discord.Interaction, sound: str):
 		log_message(f"play_sound_callback called for sound: {sound}", category="play_sound_callback")
 		if sound in hidden_sound_buttons:
-			await interaction.response.send_message("This sound button has been removed.", ephemeral=True)
+			await send_temporary_ephemeral_message(interaction, "This sound button has been removed.")
 			log_message(f"Hidden sound button ignored: {sound}.", category="play_sound_callback")
 			return
 
 		if not user_has_permission(interaction.user):
-			await interaction.response.send_message("You don't have permission to play this sound.", ephemeral=True)
+			await send_temporary_ephemeral_message(interaction, "You don't have permission to play this sound.")
 			log_message(f"User {interaction.user.display_name} does not have permission to play {sound}.", category="play_sound_callback")
 			return
 

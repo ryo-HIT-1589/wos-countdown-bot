@@ -63,10 +63,12 @@ $env:DISCORD_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
    ```json
    {
        "roles-allowed-to-control-bot": [123456789012345678],
+       "ephemeral-message-delete-after-seconds": 10,
        "purge-and-repost-on-channel-ids": []
    }
    ```
    - Set **`roles-allowed-to-control-bot`** to Discord role IDs, not role names, to restrict who can play sounds.
+   - Set **`ephemeral-message-delete-after-seconds`** to control how long private interaction notices stay visible.
    - Set **`purge-and-repost-on-channel-ids`** to an array of channel IDs if you want the bot to automatically clean and repost control messages.
    - Do not put the bot token in `config.json`.
 

@@ -3,6 +3,7 @@
     "webserver-host": "127.0.0.1",
     "roles-allowed-to-control-bot": [123456789012345678, 234567890123456789],
     "debug": true,
+    "ephemeral-message-delete-after-seconds": 10,
     "log-messages-to-keep": 0,
     "log-messages-to-keep_comment": "for log-messages-to-keep, 0 is infinite, any number over 0 is taken literally. this is not a config option, just a comment",
     "webserver": true,
